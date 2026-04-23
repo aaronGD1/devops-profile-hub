@@ -1,0 +1,45 @@
+version: "3.9"
+
+# ── Networks ────────────────────────────────────────────────────────────────────
+networks:
+  profile-net:
+    driver: bridge
+
+# ── Services ────────────────────────────────────────────────────────────────────
+services:
+
+  # ── Backend (Spring Boot) ──────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: devops-profile-backend
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SERVER_PORT=8083
+    networks:
+      - profile-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/profile || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  # ── Frontend (React + Nginx) ───────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: devops-profile-frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - profile-net
+    restart: unless-stopped
